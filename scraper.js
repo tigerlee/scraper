@@ -86,6 +86,8 @@
             coverBgColor: '#eee', // 覆盖层颜色
             pointRadius: 10, // 刮覆盖层时，触点半径
             prizeArea: [0, 0, 100, 40], // 结果(中奖)区域，矩形，参数依次为x, y, width, height
+            percentage: 0.8,  // 刮开的面积超过此值，则调用onresult()
+            inSlider: false,  // 是否处于slider之中
             shape: null, // 覆盖层形状图片，默认无图片，为矩形
             shapeX: 0, // 覆盖层形状图片左上角到canvas左上角水平距离
             shapeY: 0, // 覆盖层形状图片左上角到canvas左上角垂直距离
@@ -152,6 +154,18 @@
         // 标记是否被刮过，用来避免opts.onscrape一直触发
         var scraped = false;
 
+        function getScratchedPercentage() {
+            var validArea = opts.prizeArea || [0, 0, canvas.width, canvas.height],
+                imageData = ctx.getImageData.apply(ctx, opts.prizeArea).data,
+                validScratchedPx = 0;
+
+            for(var i = 0, len = imageData.length; i < len; i += 4){
+                if(imageData[i + 3] == 0) validScratchedPx++;
+            }
+
+            return validScratchedPx / (len / 4);
+        };
+
         // 手指或鼠标滑动回调
         function scrapeCover(e) {
 
@@ -193,46 +207,48 @@
                 // ctx1.clearRect(0, 0, opts.width, opts.height);
                 ctx1.restore();
 
-                if (scrapeX >= prizeArea[0] && 
-                        scrapeY >= prizeArea[1] &&
-                        scrapeX <= (prizeArea[0] + prizeArea[2]) &&
-                        scrapeY <= (prizeArea[1] + prizeArea[3])) {
-
+                if (getScratchedPercentage() >= opts.percentage) {
                     // 触发结果回调
                     opts.onresult();
-
                     // 标记已经被刮开
                     scraped = true;
                 }
             }
         }
+        // 返回元素距离页面左上角的水平距离
+        // 由于slider中可能使用了css偏移，所以需要使用相对偏移
+        function pageX(el) {
+            var x = 0;
+            if (opts.inSlider) {
+                x = el.getBoundingClientRect().left;
+            } else {
+                while (el = el.offsetParent) {
+                    x += el.offsetTop;
+                }
+            }
+            return x;
+        }
 
+        // 返回元素距离页面左上角的垂直距离
+        function pageY(el) {
+            var y = 0;
+            if (opts.inSlider) {
+                y = el.getBoundingClientRect().top;
+            } else {
+                while (el = el.offsetParent) {
+                    y += el.offsetTop;
+                }
+            }
+            return y;
+        }
     };
-    
+
     // 合并两个对象
     function mergeOpts(opts1, opts2) {
         for (var item in opts2) {
             opts1[item] = opts2[item];
         }
         return opts1;
-    }
-
-    // 返回元素距离页面左上角的水平距离
-    function pageX(el) {
-        var x = 0;
-        while (el = el.offsetParent) {
-            x += el.offsetLeft;
-        }
-        return x;
-    }
-
-    // 返回元素距离页面左上角的垂直距离
-    function pageY(el) {
-        var y = 0;
-        while (el = el.offsetParent) {
-            y += el.offsetTop;
-        }
-        return y;
     }
 
     // 返回文档滚动过的水平距离
